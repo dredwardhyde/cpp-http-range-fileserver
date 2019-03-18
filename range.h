@@ -10,8 +10,8 @@
 #include "reply.hpp"
 
 class range {
-    static const int DEFAULT_BUFFER_SIZE = 204800;
 public:
+    static const int DEFAULT_BUFFER_SIZE = 204800;
     unsigned long start;
     unsigned long end;
     unsigned long length;

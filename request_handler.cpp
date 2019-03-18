@@ -42,7 +42,7 @@ void request_handler::handle_request(const request& req, reply& rep) {
   std::cout << "Request path: " << request_path << std::endl;
   // Request path must be absolute and not contain "..".
   if (request_path.empty() || request_path[0] != '/'
-      || request_path.find("..") != std::string::npos) {
+      || request_path.find("..",0) != std::string::npos) {
     rep = reply::stock_reply(reply::bad_request);
     return;
   }
@@ -142,14 +142,20 @@ void request_handler::handle_request(const request& req, reply& rep) {
             httputils::split(range_value.substr(6), parts, ",");
 
             for(const std::string& part: parts){
-                long start = range::sublong(part, 0, part.find("-"));
-                long end = range::sublong(part, part.find("-"), part.length());
+                long start = range::sublong(part, 0, part.find("-",0));
+                long end = range::sublong(part, part.find("-",0) + 1, part.length());
 
                 if (start == -1) {
                     start = length - end;
-                    end = length - 1;
+                    if(length - start < range::DEFAULT_BUFFER_SIZE)
+                        end = length - 1;
+                    else
+                        end = start + range::DEFAULT_BUFFER_SIZE;
                 } else if (end == -1 || end > length - 1) {
-                    end = length - 1;
+                    if(length - start < range::DEFAULT_BUFFER_SIZE)
+                        end = length - 1;
+                    else
+                        end = start + range::DEFAULT_BUFFER_SIZE;
                 }
 
                 if(start > end){
