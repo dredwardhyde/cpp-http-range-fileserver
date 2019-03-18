@@ -69,7 +69,7 @@ void request_handler::handle_request(const request& req, reply& rep) {
   }
 
   std::ifstream in(full_path.c_str(), std::ifstream::ate | std::ifstream::binary);
-  int length = in.tellg();
+  long long int length = in.tellg();
   in.close();
 
   std::cout << "File size: " << length << std::endl;
@@ -92,6 +92,7 @@ void request_handler::handle_request(const request& req, reply& rep) {
       rep.headers.resize(1);
       rep.headers[0].name = "ETag";
       rep.headers[0].value = filename;
+      std::cout << "Status 'Not modified' because 'If-None-Match' condition" << std::endl;
       return;
   }
 
@@ -102,18 +103,21 @@ void request_handler::handle_request(const request& req, reply& rep) {
         rep.headers.resize(1);
         rep.headers[0].name = "ETag";
         rep.headers[0].value = filename;
+        std::cout << "Status 'Not modified' because 'If-Modified-Since' condition" << std::endl;
         return;
     }
 
     std::string if_match = getHeader(req, "If-Match");
     if(!if_match.empty() && !httputils::matches(if_match, filename)){
         rep = reply::stock_reply(reply::precondition_failed);
+        std::cout << "Status 'Precondition failed' because 'If-Match' condition" << std::endl;
         return;
     }
 
     long long int if_unmodified_since = getDateHeader(req, "If-Unmodified-Since");
     if(if_unmodified_since != -1 && if_unmodified_since + 1000 <= modification_ms){
         rep = reply::stock_reply(reply::precondition_failed);
+        std::cout << "Status 'Precondition failed' because 'If-Unmodified-Since' condition" << std::endl;
         return;
     }
 
@@ -134,7 +138,10 @@ void request_handler::handle_request(const request& req, reply& rep) {
         std::string if_range = getHeader(req, "If-Range");
         if(!if_range.empty() && if_range != filename){
             long long int if_range_time = getDateHeader(req, "If-Range");
-            if(if_range_time != -1) ranges.push_back(full);
+            if(if_range_time != -1) {
+                std::cout << "Returning full range because 'If-Range' condition" << std::endl;
+                ranges.push_back(full);
+            }
         }
 
         if(ranges.empty()){
@@ -145,16 +152,19 @@ void request_handler::handle_request(const request& req, reply& rep) {
                 long start = range::sublong(part, 0, part.find("-",0));
                 long end = range::sublong(part, part.find("-",0) + 1, part.length());
 
+                std::cout << "ORIGINAL START: " << start << std::endl;
+                std::cout << "ORIGINAL END: " << end << std::endl;
+
                 if (start == -1) {
                     start = length - end;
-                    if(length - start < range::DEFAULT_BUFFER_SIZE)
+                    if(length - start < range::DEFAULT_BUFFER_SIZE) {
                         end = length - 1;
-                    else
+                    } else
                         end = start + range::DEFAULT_BUFFER_SIZE;
                 } else if (end == -1 || end > length - 1) {
-                    if(length - start < range::DEFAULT_BUFFER_SIZE)
+                    if(length - start < range::DEFAULT_BUFFER_SIZE) {
                         end = length - 1;
-                    else
+                    }else
                         end = start + range::DEFAULT_BUFFER_SIZE;
                 }
 
@@ -213,7 +223,7 @@ void request_handler::handle_request(const request& req, reply& rep) {
         range::copy(is, rep, length, full.start, full.length);
     } else if(ranges.size() == 1){
         range r = ranges.at(0);
-        std::cout << "Return 1 part of file : from " << r.start << " to " << r.end;
+        std::cout << "Return 1 part of file : from " << r.start << " to " << r.end << std::endl;
         rep.headers[6].name = "Content-Range";
         rep.headers[6].value = "bytes " + std::to_string(r.start) + "-" + std::to_string(r.end) + "/" + std::to_string(r.total);
         rep.headers[7].name = "Content-Length";
